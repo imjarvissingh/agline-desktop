@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isTrustedIpcSender, isValidCallId } from '../src/ipc-policy.js';
-import { externalHttpsUrl, isAllowedDesktopUrl, normalizeOrigin, safeExternalHttpsUrl } from '../src/origin-policy.js';
+import { externalHttpsUrl, incomingNotificationBody, isAllowedDesktopPermission, isAllowedDesktopUrl, normalizeOrigin, safeExternalHttpsUrl } from '../src/origin-policy.js';
 
 describe('desktop URL and IPC policy', () => {
   const origin = 'https://agline.in';
@@ -21,6 +21,16 @@ describe('desktop URL and IPC policy', () => {
     expect(isAllowedDesktopUrl('http://127.0.0.1:4312/desktop/incoming', 'http://127.0.0.1:4312')).toBe(true);
     expect(() => normalizeOrigin('http://agline.in')).toThrow();
     expect(() => normalizeOrigin('https://agline.in/path')).toThrow();
+  });
+
+  it('allows trusted notifications but denies microphone access because desktop replies are typed', () => {
+    expect(isAllowedDesktopPermission('notifications', 'https://agline.in/', origin)).toBe(true);
+    expect(isAllowedDesktopPermission('media', 'https://agline.in/', origin)).toBe(false);
+    expect(isAllowedDesktopPermission('notifications', 'https://evil.example/', origin)).toBe(false);
+  });
+
+  it('shows no call text in the native notification', () => {
+    expect(incomingNotificationBody()).toBe('Open AGline to view this call.');
   });
 
   it('validates IPC names, origin, and call IDs', () => {

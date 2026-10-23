@@ -14,14 +14,13 @@ import {
   shell,
   Tray,
   type IpcMainInvokeEvent,
-  type PermissionCheckHandlerHandlerDetails,
   type Session,
   type WebContents,
 } from 'electron';
 import electronUpdater from 'electron-updater';
 import { CredentialStore } from './credential-store.js';
 import { isTrustedIpcSender, isValidCallId } from './ipc-policy.js';
-import { externalHttpsUrl, isAllowedDesktopUrl, normalizeOrigin, safeExternalHttpsUrl } from './origin-policy.js';
+import { externalHttpsUrl, incomingNotificationBody, isAllowedDesktopPermission, isAllowedDesktopUrl, normalizeOrigin, safeExternalHttpsUrl } from './origin-policy.js';
 import { CallPoller, type FetchCallsResult, type PollerStatus, type RingCall } from './poller.js';
 
 type TrayStatus = PollerStatus;
@@ -322,7 +321,7 @@ function showCallNotification(call: RingCall): void {
   if (!Notification.isSupported() || process.platform === 'win32') return;
   const notification = new Notification({
     title: `${call.agent_name || 'An agent'} is calling`,
-    body: call.text.slice(0, 220),
+    body: incomingNotificationBody(),
     // Toast buttons are delivered to the app on macOS only; on Windows they appeared but did nothing, so there it is a plain toast
     // and the always-on-top popup carries Answer and Decline.
     ...(process.platform === 'darwin' ? { actions: [{ type: 'button' as const, text: 'Answer' }, { type: 'button' as const, text: 'Decline' }] } : {}),
@@ -355,24 +354,11 @@ async function declineCallFromMain(callId: string): Promise<void> {
 }
 
 function setupPermissions(): void {
-  const allowed = (permission: string, requestingUrl: string, mediaTypes?: string[]) => {
-    if (!isAllowedDesktopUrl(requestingUrl, origin)) return false;
-    if (permission === 'notifications') return true;
-    if (permission === 'media') return !!mediaTypes?.includes('audio') && !mediaTypes.includes('video');
-    return false;
-  };
   partition.setPermissionRequestHandler((webContents, permission, callback, details) => {
-    const mediaTypes = 'mediaTypes' in details ? details.mediaTypes : undefined;
-    callback(!!webContents && isAllowedDesktopUrl(webContents.getURL(), origin) && allowed(permission, details.requestingUrl, mediaTypes));
+    callback(!!webContents && isAllowedDesktopUrl(webContents.getURL(), origin) && isAllowedDesktopPermission(permission, details.requestingUrl, origin));
   });
-  partition.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
-    if (!webContents || !isAllowedDesktopUrl(requestingOrigin, origin)) return false;
-    if (permission === 'notifications') return true;
-    if (permission === 'media') {
-      const mediaType = (details as PermissionCheckHandlerHandlerDetails).mediaType;
-      return mediaType === 'audio';
-    }
-    return false;
+  partition.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    return !!webContents && isAllowedDesktopUrl(webContents.getURL(), origin) && isAllowedDesktopPermission(permission, requestingOrigin, origin);
   });
 }
 
@@ -418,7 +404,7 @@ async function setupCredentialVault(): Promise<void> {
 function fetchCallsFromWebSession(): Promise<FetchCallsResult> {
   const win = mainWindow;
   if (!win || win.isDestroyed()) return Promise.reject(new Error('window not ready'));
-  const script = `((async () => { const r = await fetch('/api/v1/calls', { credentials: 'same-origin', cache: 'no-store' }); if (r.status === 401) return { kind: 'signed-out' }; if (!r.ok) throw new Error('request failed'); const body = await r.json(); return { kind: 'ok', calls: body.calls }; })())`;
+  const script = `((async () => { const r = await fetch('/api/v1/calls', { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(15_000) }); if (r.status === 401) return { kind: 'signed-out' }; if (!r.ok) throw new Error('request failed'); const body = await r.json(); return { kind: 'ok', calls: body.calls }; })())`;
   return win.webContents.executeJavaScript(script) as Promise<FetchCallsResult>;
 }
 

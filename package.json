@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "AGline",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "AGline desktop ringer for Windows and macOS",
   "author": "AGline",
@@ -73,7 +73,6 @@
       "icon": "icons/icon.icns",
       "extendInfo": {
         "NSUserNotificationAlertStyle": "alert",
-        "NSMicrophoneUsageDescription": "AGline can use your microphone for call replies when supported.",
         "NSUserNotificationsUsageDescription": "AGline shows incoming call alerts."
       }
     },

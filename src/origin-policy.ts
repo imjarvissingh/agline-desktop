@@ -17,6 +17,14 @@ export function isAllowedDesktopUrl(raw: string, origin: string): boolean {
   }
 }
 
+/** Desktop replies are typed only; the trusted web origin may request notifications but never microphone access. */
+export function isAllowedDesktopPermission(permission: string, requestingUrl: string, origin: string): boolean {
+  return isAllowedDesktopUrl(requestingUrl, origin) && permission === 'notifications';
+}
+
+/** Native notifications can appear on a locked screen. Message text stays inside the app. */
+export function incomingNotificationBody(): string { return 'Open AGline to view this call.'; }
+
 export function externalHttpsUrl(raw: string, origin: string): string | undefined {
   try {
     const url = new URL(raw);
