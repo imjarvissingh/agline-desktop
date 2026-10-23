@@ -142,18 +142,18 @@ function setupUpdater(): void {
     logInfo('update downloaded; it will install when AGline quits');
     manualUpdateCheck = false;
     void dialog.showMessageBox({ type: 'info', title: 'AGline update ready', message: 'A new version of AGline is ready.', detail: 'Restart now to install it, or it installs when you quit.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
-      .then((r) => { if (r.response === 0) { isQuitting = true; autoUpdater.quitAndInstall(); } });
+      .then((r) => { if (r.response === 0) { isQuitting = true; autoUpdater.quitAndInstall(false, true); } });
   });
   autoUpdater.on('error', () => { logInfo('update check failed'); if (manualUpdateCheck) { manualUpdateCheck = false; void dialog.showMessageBox({ type: 'warning', title: 'AGline', message: 'Could not check for updates.', detail: 'Check your internet connection and try again.' }); } });
 }
 
-function checkForUpdates(): void {
+function checkForUpdates(manual = true): void {
   if (process.env.AGLINE_DISABLE_UPDATES === '1') return;
   if (!app.isPackaged || (process.platform === 'darwin' && !metadata().macSigned)) {
     showDownloadPage();
     return;
   }
-  manualUpdateCheck = true;
+  manualUpdateCheck = manual;
   void electronUpdater.autoUpdater.checkForUpdates().catch(() => { logInfo('update check failed'); manualUpdateCheck = false; });
 }
 
@@ -316,7 +316,8 @@ function closeIncomingWindow(callId?: string): void {
 }
 
 function showCallNotification(call: RingCall): void {
-  if (!Notification.isSupported()) return;
+  // On Windows the always-on-top popup already carries the call; the toast only duplicated it, lingered for a minute and covered the tray.
+  if (!Notification.isSupported() || process.platform === 'win32') return;
   const notification = new Notification({
     title: `${call.agent_name || 'An agent'} is calling`,
     body: call.text.slice(0, 220),
@@ -511,7 +512,7 @@ else {
     ensureMainWindow(app.getLoginItemSettings().wasOpenedAtLogin || process.argv.includes('--hidden'));
     installPoller();
     setupSmokeState();
-    if (app.isPackaged && (process.platform !== 'darwin' || metadata().macSigned)) setTimeout(() => checkForUpdates(), 7_000).unref();
+    if (app.isPackaged && (process.platform !== 'darwin' || metadata().macSigned)) setTimeout(() => checkForUpdates(false), 7_000).unref();
     if (pendingDeepLink) handleDeepLink(pendingDeepLink);
     logInfo('desktop shell ready');
   }).catch(() => {

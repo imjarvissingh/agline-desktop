@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "AGline",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "AGline desktop ringer for Windows and macOS",
   "author": "AGline",
