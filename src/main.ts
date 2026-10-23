@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
@@ -80,7 +81,8 @@ function asStatusName(status: TrayStatus): string {
 const appIcon = () => nativeImage.createFromPath(join(app.getAppPath(), 'assets', 'app-icon.png'));
 
 function trayIcon(status: TrayStatus) {
-  return nativeImage.createFromPath(join(app.getAppPath(), 'assets', `tray-${status}.png`));
+  const file = process.platform === 'win32' ? `tray-win-${status}.png` : `tray-${status}.png`;
+  return nativeImage.createFromPath(join(app.getAppPath(), 'assets', file));
 }
 
 function setTrayStatus(status: TrayStatus): void {
@@ -114,6 +116,8 @@ function metadata(): BuildMetadata {
   return {};
 }
 
+let manualUpdateCheck = false;
+
 function setupUpdater(): void {
   if (process.env.AGLINE_DISABLE_UPDATES === '1') {
     logInfo('updates disabled by AGLINE_DISABLE_UPDATES');
@@ -131,13 +135,16 @@ function setupUpdater(): void {
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.setFeedURL({ provider: 'generic', url: updateUrl });
   autoUpdater.on('checking-for-update', () => logInfo('checking for updates'));
-  autoUpdater.on('update-available', () => logInfo('update available; downloading'));
-  autoUpdater.on('update-not-available', () => logInfo('no update available'));
+  // A check started from the tray menu reports its result; the automatic check stays quiet unless an update is ready.
+  autoUpdater.on('update-available', (info) => { logInfo('update available; downloading'); if (manualUpdateCheck) void dialog.showMessageBox({ type: 'info', title: 'AGline', message: `Version ${info.version} is available.`, detail: 'It is downloading now and you will be asked to restart when it is ready.' }); });
+  autoUpdater.on('update-not-available', () => { logInfo('no update available'); if (manualUpdateCheck) { manualUpdateCheck = false; void dialog.showMessageBox({ type: 'info', title: 'AGline', message: 'AGline is up to date.', detail: `Version ${app.getVersion()}` }); } });
   autoUpdater.on('update-downloaded', () => {
     logInfo('update downloaded; it will install when AGline quits');
-    if (Notification.isSupported()) new Notification({ title: 'AGline update ready', body: 'The update will install when you quit AGline.' }).show();
+    manualUpdateCheck = false;
+    void dialog.showMessageBox({ type: 'info', title: 'AGline update ready', message: 'A new version of AGline is ready.', detail: 'Restart now to install it, or it installs when you quit.', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1 })
+      .then((r) => { if (r.response === 0) { isQuitting = true; autoUpdater.quitAndInstall(); } });
   });
-  autoUpdater.on('error', () => logInfo('update check failed'));
+  autoUpdater.on('error', () => { logInfo('update check failed'); if (manualUpdateCheck) { manualUpdateCheck = false; void dialog.showMessageBox({ type: 'warning', title: 'AGline', message: 'Could not check for updates.', detail: 'Check your internet connection and try again.' }); } });
 }
 
 function checkForUpdates(): void {
@@ -146,7 +153,8 @@ function checkForUpdates(): void {
     showDownloadPage();
     return;
   }
-  void electronUpdater.autoUpdater.checkForUpdates().catch(() => logInfo('update check failed'));
+  manualUpdateCheck = true;
+  void electronUpdater.autoUpdater.checkForUpdates().catch(() => { logInfo('update check failed'); manualUpdateCheck = false; });
 }
 
 function setLaunchAtLogin(openAtLogin: boolean): void {
@@ -156,7 +164,7 @@ function setLaunchAtLogin(openAtLogin: boolean): void {
 
 function rebuildTrayMenu(): void {
   if (!tray) return;
-  const loginEnabled = app.getLoginItemSettings().openAtLogin;
+  const loginEnabled = app.getLoginItemSettings({ args: ['--hidden'] }).openAtLogin;
   const menu = Menu.buildFromTemplate([
     { label: `● ${asStatusName(trayStatus)}`, enabled: false },
     { type: 'separator' },
@@ -175,6 +183,7 @@ function ensureMainWindow(hidden = false): BrowserWindow {
   if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
   const win = new BrowserWindow({
     icon: appIcon(),
+    autoHideMenuBar: process.platform !== 'darwin',
     width: 1180,
     height: 780,
     minWidth: 760,
@@ -264,11 +273,11 @@ function createIncomingWindow(call: RingCall): void {
   const win = new BrowserWindow({
     icon: appIcon(),
     width: 430,
-    height: 270,
+    height: 300,
     minWidth: 390,
-    minHeight: 240,
+    minHeight: 270,
     maxWidth: 520,
-    maxHeight: 320,
+    maxHeight: 360,
     title: 'Incoming AGline call',
     frame: false,
     resizable: false,
@@ -311,10 +320,9 @@ function showCallNotification(call: RingCall): void {
   const notification = new Notification({
     title: `${call.agent_name || 'An agent'} is calling`,
     body: call.text.slice(0, 220),
-    actions: [
-      { type: 'button', text: 'Answer' },
-      { type: 'button', text: 'Decline' },
-    ],
+    // Toast buttons are delivered to the app on macOS only; on Windows they appeared but did nothing, so there it is a plain toast
+    // and the always-on-top popup carries Answer and Decline.
+    ...(process.platform === 'darwin' ? { actions: [{ type: 'button' as const, text: 'Answer' }, { type: 'button' as const, text: 'Decline' }] } : {}),
   });
   notification.on('click', () => openMainCallFromNotification(call.id));
   notification.on('action', (event) => {

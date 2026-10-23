@@ -32,3 +32,18 @@ shutil.rmtree(iconset)
 src.resize((256, 256), Image.LANCZOS).save(out / 'icon.ico', sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
 src.resize((512, 512), Image.LANCZOS).save(out / 'icon.png')
 print('wrote', *(p.name for p in (out / 'icon.icns', out / 'icon.ico', out / 'icon.png')))
+
+# Windows tray icons: the colourful app icon with a status dot, so they stay visible on both light and dark taskbars
+# (the macOS tray icons are white-on-transparent and vanish on a light taskbar).
+for status, colour in (('connected', (34, 197, 94, 255)), ('offline', (239, 68, 68, 255)), ('signed-out', (156, 163, 175, 255))):
+    size = 64  # drawn large, shown at 16-32 px
+    img = src.resize((size, size), Image.LANCZOS).convert('RGBA')
+    mask = Image.new('L', (size * 4, size * 4), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, size * 4 - 1, size * 4 - 1), radius=int(size * 4 * 0.22), fill=255)
+    base = Image.new('RGBA', (size, size), (0, 0, 0, 0)); base.paste(img, (0, 0), mask.resize((size, size), Image.LANCZOS))
+    d = ImageDraw.Draw(base)
+    r = 13; cx, cy = size - r - 1, size - r - 1
+    d.ellipse((cx - r - 3, cy - r - 3, cx + r + 3, cy + r + 3), fill=(255, 255, 255, 255))  # white ring for contrast
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=colour)
+    base.save(root / 'assets' / f'tray-win-{status}.png')
+print('wrote tray-win-*.png')
