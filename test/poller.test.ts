@@ -40,6 +40,19 @@ describe('call polling rules', () => {
     poller.stop();
   });
 
+  it('does not poll in a tight loop when resume() is called repeatedly while connected', async () => {
+    const fetchCalls = vi.fn<() => Promise<{ kind: 'ok'; calls: RingCall[] }>>().mockResolvedValue({ kind: 'ok', calls: [] });
+    vi.useFakeTimers();
+    const poller = new CallPoller({ fetchCalls, onIncoming: vi.fn(), onEnded: vi.fn(), random: () => 0.5 });
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    for (let i = 0; i < 100; i += 1) { poller.resume(); await vi.advanceTimersByTimeAsync(0); }
+    expect(fetchCalls).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(fetchCalls).toHaveBeenCalledTimes(2);
+    poller.stop();
+  });
+
   it('backs off after errors and resumes polling after sign-in', async () => {
     const fetchCalls = vi.fn<() => Promise<{ kind: 'ok'; calls: RingCall[] } | { kind: 'signed-out' }>>().mockResolvedValue({ kind: 'signed-out' });
     const onStatus = vi.fn();

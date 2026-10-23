@@ -64,7 +64,10 @@ export class CallPoller {
     this.schedule(0);
   }
 
+  // Called on sign-in and page loads. A healthy poller must ignore it: the web session's sliding
+  // cm_device cookie changes on every poll response, and resuming on that would poll in a tight loop.
   resume(): void {
+    if (this.running && !this.paused && this.failures === 0) return;
     this.running = true;
     this.paused = false;
     this.failures = 0;
