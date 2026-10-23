@@ -481,7 +481,8 @@ else {
     partition.setUserAgent(`${partition.getUserAgent()} AGlineDesktop/${desktopPlatform}`);
     if (process.platform === 'win32') app.setAppUserModelId('in.agline.desktop');
     setupPermissions();
-    await setupCredentialVault();
+    // A Keychain/DPAPI prompt can sit unanswered; do not keep the window and tray waiting for it.
+    await Promise.race([setupCredentialVault(), new Promise<void>((resolve) => setTimeout(resolve, 4000))]);
     tray = new Tray(trayIcon(trayStatus));
     tray.on('click', () => openMainWindow());
     tray.on('double-click', () => openMainWindow());
