@@ -1,0 +1,5 @@
+# Only these packages may run install scripts.
+allowBuilds:
+  esbuild: true
+  electron: true
+  electron-winstaller: true
