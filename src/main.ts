@@ -205,7 +205,7 @@ function ensureMainWindow(hidden = false): BrowserWindow {
     }
   });
   win.webContents.on('did-navigate-in-page', () => poller?.resume());
-  void win.loadURL(makeOriginUrl('/'));
+  void win.loadURL(makeOriginUrl('/number'));
   return win;
 }
 
