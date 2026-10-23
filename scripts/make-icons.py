@@ -29,9 +29,20 @@ master.resize((512, 512), Image.LANCZOS).save(root / 'assets' / 'dock-icon.png')
 subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(out / 'icon.icns')], check=True)
 shutil.rmtree(iconset)
 
-# Windows: full square art, every size Windows asks for.
-src.resize((256, 256), Image.LANCZOS).save(out / 'icon.ico', sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-src.resize((512, 512), Image.LANCZOS).save(out / 'icon.png')
+# Windows draws .ico art exactly as supplied, so a full-bleed square looks sharper than the macOS icon. Bake in rounded corners with
+# transparent edges (about 2% padding) for the shell icons, the window and taskbar icon, and the installer.
+def win_master(size: int) -> Image.Image:
+    pad = round(size * 0.02); body = size - 2 * pad
+    art = src.resize((body, body), Image.LANCZOS)
+    mask = Image.new('L', (body * 4, body * 4), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, body * 4 - 1, body * 4 - 1), radius=int(body * 4 * 0.2237), fill=255)
+    canvas = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    canvas.paste(art, (pad, pad), mask.resize((body, body), Image.LANCZOS))
+    return canvas
+
+win_master(256).save(out / 'icon.ico', sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+win_master(512).save(out / 'icon.png')
+win_master(512).save(root / 'assets' / 'app-icon.png')   # BrowserWindow icon: title bar and taskbar
 print('wrote', *(p.name for p in (out / 'icon.icns', out / 'icon.ico', out / 'icon.png')))
 
 # Windows tray icons: the colourful app icon with a status dot, so they stay visible on both light and dark taskbars
