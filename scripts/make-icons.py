@@ -25,6 +25,7 @@ master = mac_master()
 for base in (16, 32, 128, 256, 512):
     master.resize((base, base), Image.LANCZOS).save(iconset / f'icon_{base}x{base}.png')
     master.resize((base * 2, base * 2), Image.LANCZOS).save(iconset / f'icon_{base}x{base}@2x.png')
+master.resize((512, 512), Image.LANCZOS).save(root / 'assets' / 'dock-icon.png')  # shown in the Dock when running unpackaged (development)
 subprocess.run(['iconutil', '-c', 'icns', str(iconset), '-o', str(out / 'icon.icns')], check=True)
 shutil.rmtree(iconset)
 

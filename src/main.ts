@@ -78,11 +78,13 @@ function asStatusName(status: TrayStatus): string {
   return 'Signed out';
 }
 
-const appIcon = () => nativeImage.createFromPath(join(app.getAppPath(), 'assets', 'app-icon.png'));
+// Packaged, assets sit beside the code inside the app bundle. Unpackaged (`electron dist/src/main.js`) the app path is dist/src, so go up to the package.
+const assetPath = (name: string) => join(app.isPackaged ? app.getAppPath() : join(ownDir, '..', '..'), 'assets', name);
+const appIcon = () => nativeImage.createFromPath(assetPath('app-icon.png'));
 
 function trayIcon(status: TrayStatus) {
   const file = process.platform === 'win32' ? `tray-win-${status}.png` : `tray-${status}.png`;
-  return nativeImage.createFromPath(join(app.getAppPath(), 'assets', file));
+  return nativeImage.createFromPath(assetPath(file));
 }
 
 function setTrayStatus(status: TrayStatus): void {
@@ -498,6 +500,11 @@ else {
 
   void app.whenReady().then(async () => {
     app.setName('AGline');
+    if (process.platform === 'darwin') {
+      // Automated runs must not flash an app in the Dock; an unpackaged development run would otherwise show Electron's own icon.
+      if (isSmoke || process.env.AGLINE_E2E === '1') app.dock?.hide();
+      else if (!app.isPackaged) app.dock?.setIcon(nativeImage.createFromPath(assetPath('dock-icon.png')));
+    }
     partition = session.fromPartition(PARTITION, { cache: true });
     partition.setUserAgent(`${partition.getUserAgent()} AGlineDesktop/${desktopPlatform}`);
     if (process.platform === 'win32') app.setAppUserModelId('in.agline.desktop');

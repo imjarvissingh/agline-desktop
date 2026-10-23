@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "AGline",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "AGline desktop ringer for Windows and macOS",
   "author": "AGline",
@@ -78,6 +78,7 @@
       }
     },
     "dmg": {
+      "icon": "icons/icon.icns",
       "title": "AGline ${version}",
       "contents": [
         { "x": 130, "y": 190 },
@@ -92,6 +93,9 @@
       "icon": "icons/icon.ico"
     },
     "nsis": {
+      "installerIcon": "icons/icon.ico",
+      "uninstallerIcon": "icons/icon.ico",
+      "installerHeaderIcon": "icons/icon.ico",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
