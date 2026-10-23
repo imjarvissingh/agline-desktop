@@ -77,6 +77,8 @@ function asStatusName(status: TrayStatus): string {
   return 'Signed out';
 }
 
+const appIcon = () => nativeImage.createFromPath(join(app.getAppPath(), 'assets', 'app-icon.png'));
+
 function trayIcon(status: TrayStatus) {
   return nativeImage.createFromPath(join(app.getAppPath(), 'assets', `tray-${status}.png`));
 }
@@ -162,6 +164,7 @@ function rebuildTrayMenu(): void {
     { label: 'Mute ringer', type: 'checkbox', checked: muted, click: (item) => setRingerMuted(item.checked) },
     { label: 'Launch at login', type: 'checkbox', checked: loginEnabled, click: (item) => setLaunchAtLogin(item.checked) },
     { label: 'Check for updates', click: () => checkForUpdates() },
+    { label: 'Send feedback', click: () => openPage('/feedback') },
     { type: 'separator' },
     { label: 'Quit', click: () => { isQuitting = true; poller?.stop(); app.quit(); } },
   ]);
@@ -171,6 +174,7 @@ function rebuildTrayMenu(): void {
 function ensureMainWindow(hidden = false): BrowserWindow {
   if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
   const win = new BrowserWindow({
+    icon: appIcon(),
     width: 1180,
     height: 780,
     minWidth: 760,
@@ -235,6 +239,13 @@ function openMainWindow(): void {
   win.focus();
 }
 
+function openPage(path: string): void {
+  const win = ensureMainWindow();
+  win.show();
+  win.focus();
+  void win.loadURL(makeOriginUrl(path));
+}
+
 function openCall(callId: string, answerNow = false): void {
   if (!isValidCallId(callId)) return;
   closeIncomingWindow(callId);
@@ -251,6 +262,7 @@ function createIncomingWindow(call: RingCall): void {
     closeIncomingWindow(incomingCallId);
   }
   const win = new BrowserWindow({
+    icon: appIcon(),
     width: 430,
     height: 270,
     minWidth: 390,

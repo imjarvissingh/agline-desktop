@@ -70,7 +70,7 @@
     "mac": {
       "category": "public.app-category.utilities",
       "target": ["dmg", "zip"],
-      "icon": "build/icon.svg",
+      "icon": "icons/icon.icns",
       "extendInfo": {
         "NSUserNotificationAlertStyle": "alert",
         "NSMicrophoneUsageDescription": "AGline can use your microphone for call replies when supported.",
@@ -89,7 +89,7 @@
       "target": [
         { "target": "nsis", "arch": ["x64", "arm64"] }
       ],
-      "icon": "build/icon.svg"
+      "icon": "icons/icon.ico"
     },
     "nsis": {
       "oneClick": false,
