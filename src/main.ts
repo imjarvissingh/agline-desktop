@@ -21,10 +21,10 @@ import electronUpdater from 'electron-updater';
 import { CredentialStore } from './credential-store.js';
 import { isTrustedIpcSender, isValidCallId } from './ipc-policy.js';
 import { externalHttpsUrl, incomingNotificationBody, isAllowedDesktopPermission, isAllowedDesktopUrl, normalizeOrigin, safeExternalHttpsUrl } from './origin-policy.js';
+import { autoUpdateAllowed, type BuildMetadata } from './update-policy.js';
 import { CallPoller, type FetchCallsResult, type PollerStatus, type RingCall } from './poller.js';
 
 type TrayStatus = PollerStatus;
-type BuildMetadata = { macSigned?: boolean };
 type AuthCookieSnapshot = {
   name: string;
   value: string;
@@ -119,14 +119,19 @@ function metadata(): BuildMetadata {
 
 let manualUpdateCheck = false;
 
+/** M-13: only signed builds (and, on Windows, with a pinned publisherName) may download or install updates. */
+function updatesAllowed(): boolean {
+  return autoUpdateAllowed(process.platform, app.isPackaged, metadata());
+}
+
 function setupUpdater(): void {
   if (process.env.AGLINE_DISABLE_UPDATES === '1') {
     logInfo('updates disabled by AGLINE_DISABLE_UPDATES');
     return;
   }
-  if (!app.isPackaged || (process.platform === 'darwin' && !metadata().macSigned)) {
-    logInfo(process.platform === 'darwin'
-      ? 'updates disabled on macOS: this build is unsigned; Check for updates opens the download page'
+  if (!updatesAllowed()) {
+    logInfo(app.isPackaged
+      ? 'updates disabled: this build is unsigned; Check for updates opens the download page'
       : 'updates disabled in an unpackaged development run');
     return;
   }
@@ -150,7 +155,7 @@ function setupUpdater(): void {
 
 function checkForUpdates(manual = true): void {
   if (process.env.AGLINE_DISABLE_UPDATES === '1') return;
-  if (!app.isPackaged || (process.platform === 'darwin' && !metadata().macSigned)) {
+  if (!updatesAllowed()) {
     showDownloadPage();
     return;
   }
@@ -505,7 +510,7 @@ else {
     ensureMainWindow(app.getLoginItemSettings().wasOpenedAtLogin || process.argv.includes('--hidden'));
     installPoller();
     setupSmokeState();
-    if (app.isPackaged && (process.platform !== 'darwin' || metadata().macSigned)) setTimeout(() => checkForUpdates(false), 7_000).unref();
+    if (updatesAllowed()) setTimeout(() => checkForUpdates(false), 7_000).unref();
     if (pendingDeepLink) handleDeepLink(pendingDeepLink);
     logInfo('desktop shell ready');
   }).catch(() => {
