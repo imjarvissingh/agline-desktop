@@ -19,6 +19,7 @@ import {
 } from 'electron';
 import electronUpdater from 'electron-updater';
 import { CredentialStore } from './credential-store.js';
+import { startAtLoginMenuItem } from './login-settings.js';
 import { isTrustedIpcSender, isValidCallId } from './ipc-policy.js';
 import { externalHttpsUrl, incomingNotificationBody, isAllowedDesktopPermission, isAllowedDesktopUrl, normalizeOrigin, safeExternalHttpsUrl } from './origin-policy.js';
 import { autoUpdateAllowed, type BuildMetadata } from './update-policy.js';
@@ -163,20 +164,14 @@ function checkForUpdates(manual = true): void {
   void electronUpdater.autoUpdater.checkForUpdates().catch(() => { logInfo('update check failed'); manualUpdateCheck = false; });
 }
 
-function setLaunchAtLogin(openAtLogin: boolean): void {
-  app.setLoginItemSettings({ openAtLogin, args: ['--hidden'] });
-  rebuildTrayMenu();
-}
-
 function rebuildTrayMenu(): void {
   if (!tray) return;
-  const loginEnabled = app.getLoginItemSettings({ args: ['--hidden'] }).openAtLogin;
   const menu = Menu.buildFromTemplate([
     { label: `● ${asStatusName(trayStatus)}`, enabled: false },
     { type: 'separator' },
     { label: 'Open AGline', click: () => openMainWindow() },
     { label: 'Mute ringer', type: 'checkbox', checked: muted, click: (item) => setRingerMuted(item.checked) },
-    { label: 'Launch at login', type: 'checkbox', checked: loginEnabled, click: (item) => setLaunchAtLogin(item.checked) },
+    startAtLoginMenuItem(app, rebuildTrayMenu),
     { label: 'Check for updates', click: () => checkForUpdates() },
     { label: 'Send feedback', click: () => openPage('/feedback') },
     { type: 'separator' },
